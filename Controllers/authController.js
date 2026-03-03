@@ -31,15 +31,14 @@ export const login = async (req,res) => {
     res.json({message: "Login Successful"});
 };
 
-export const forgotPassword = async (req,res) => {
+export const forgotPassword = async (req, res) => {
+  try {
     console.log("forgotPassword called with:", req.body);
-    const {email} = req.body;
-    
-    console.log("Looking for user with email:", email);
-    const user =await User.findOne({email});
-    console.log("User found:", user ? "YES" : "NO");
-    
-    if(!user) return res.status(403).json({message: "User not  found"});
+    const { email } = req.body;
+
+    const user = await User.findOne({ email });
+    if (!user)
+      return res.status(403).json({ message: "User not found" });
 
     const token = crypto.randomBytes(32).toString("hex");
 
@@ -48,26 +47,32 @@ export const forgotPassword = async (req,res) => {
     await user.save();
 
     const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
-  port: 587,
-  secure: false,
-  family: 4,   // VERY IMPORTANT
-  auth: {
-    user: process.env.EMAIL,
-    pass: process.env.EMAIL_PASS,
-  },
-});
+      host: "smtp.gmail.com",
+      port: 587,
+      secure: false,
+      family: 4,
+      auth: {
+        user: process.env.EMAIL,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
 
     const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
 
     await transporter.sendMail({
-        to: user.email,
-        subject: "Password Reset",
-        html: `<h3>Click below to reset password</h3>
-        <a href="${resetLink}">${resetLink}</a>`,
+      from: process.env.EMAIL, 
+      to: user.email,
+      subject: "Password Reset",
+      html: `<h3>Click below to reset password</h3>
+             <a href="${resetLink}">${resetLink}</a>`,
     });
 
-    res.json({message: "Reset link sent to email"});
+    res.json({ message: "Reset link sent to email" });
+
+  } catch (error) {
+    console.error("Forgot Password Error:", error);
+    res.status(500).json({ message: "Failed to send reset instructions" });
+  }
 };
 
 export const resetPassword = async(req, res) => {
