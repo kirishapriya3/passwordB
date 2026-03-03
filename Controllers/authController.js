@@ -39,9 +39,11 @@ export const forgotPassword = async (req, res) => {
     const user = await User.findOne({ email });
     if (!user)
       return res.status(403).json({ message: "User not found" });
-
+    console.log("user",user);
+    
     const token = crypto.randomBytes(32).toString("hex");
-
+    console.log("token",token);
+    
     user.resetToken = token;
     user.resetTokenExpiry = Date.now() + 3600000;
     await user.save();
@@ -56,17 +58,20 @@ export const forgotPassword = async (req, res) => {
         pass: process.env.EMAIL_PASS,
       },
     });
-
+    console.log("transporter",transporter);
+    
     const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
-
-    await transporter.sendMail({
+    console.log("resetLink",resetLink);
+    
+    const trans = await transporter.sendMail({
       from: process.env.EMAIL, 
       to: user.email,
       subject: "Password Reset",
       html: `<h3>Click below to reset password</h3>
              <a href="${resetLink}">${resetLink}</a>`,
     });
-
+    console.log("trans",trans);
+    
     res.json({ message: "Reset link sent to email" });
 
   } catch (error) {
