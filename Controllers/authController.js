@@ -49,15 +49,22 @@ export const forgotPassword = async (req, res) => {
     await user.save();
 
     const transporter = nodemailer.createTransport({
-      host: "smtp.gmail.com",
-      port: 587,
-      secure: false,
-      family: 4,
-      auth: {
-        user: process.env.EMAIL,
-        pass: process.env.EMAIL_PASS,
-      },
-    });
+  service: "gmail",
+  auth: {
+    user: process.env.EMAIL,
+    pass: process.env.EMAIL_PASS,
+  },
+});
+    // const transporter = nodemailer.createTransport({
+    //   host: "smtp.gmail.com",
+    //   port: 587,
+    //   secure: false,
+    //   family: 4,
+    //   auth: {
+    //     user: process.env.EMAIL,
+    //     pass: process.env.EMAIL_PASS,
+    //   },
+    // });
     console.log("transporter",transporter);
     
     const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
