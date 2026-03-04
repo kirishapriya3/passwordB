@@ -1,8 +1,7 @@
 import User from "../Models/User.js";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
-import nodemailer from 'nodemailer';
-
+import SibApiV3Sdk from 'sib-api-v3-sdk';
 
 export const register = async (req,res) => {
     const {name, email, password} = req.body;
@@ -32,52 +31,120 @@ export const login = async (req,res) => {
     res.json({message: "Login Successful"});
 };
 
-export const forgotPassword = async (req, res) => {
-  try {
-    console.log("forgotPassword called with:", req.body);
-    const { email } = req.body;
+// export const forgotPassword = async (req, res) => {
+//   try {
+//     console.log("forgotPassword called with:", req.body);
+//     const { email } = req.body;
 
-    const user = await User.findOne({ email });
-    if (!user)
-      return res.status(403).json({ message: "User not found" });
-    console.log("user",user);
+//     const user = await User.findOne({ email });
+//     if (!user)
+//       return res.status(403).json({ message: "User not found" });
+//     console.log("user",user);
     
-    const token = crypto.randomBytes(32).toString("hex");
-    console.log("token",token);
+//     const token = crypto.randomBytes(32).toString("hex");
+//     console.log("token",token);
     
-    user.resetToken = token;
-    user.resetTokenExpiry = Date.now() + 3600000;
-    await user.save();
+//     user.resetToken = token;
+//     user.resetTokenExpiry = Date.now() + 3600000;
+//     await user.save();
 
   
-    const transporter = nodemailer.createTransport({
-      host: "smtp.gmail.com",
-      port: 587,
-      secure: false,
-      family: 4,
-      auth: {
-        user: process.env.EMAIL,
-        pass: process.env.EMAIL_PASS,
-      },
-    });
+//     const transporter = nodemailer.createTransport({
+//       host: "smtp.gmail.com",
+//       port: 587,
+//       secure: false,
+//       family: 4,
+//       auth: {
+//         user: process.env.EMAIL,
+//         pass: process.env.EMAIL_PASS,
+//       },
+//     });
     
+//     const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
+//     console.log("resetLink",resetLink);
+
+
+//     const trans = await transporter.sendMail({
+//       from: process.env.EMAIL, 
+//       to: user.email,
+//       subject: "Password Reset",
+//       html: `<h3>Click below to reset password</h3>
+//              <a href="${resetLink}">${resetLink}</a>`,
+//     });
+//     console.log("trans",trans);
+    
+//     res.json({ message: "Reset link sent to email" });
+
+//   } catch (error) {
+//     console.error("Forgot Password Error:", error);
+//     res.status(500).json({ message: "Failed to send reset instructions" });
+//   }
+// };
+
+export const forgotPassword = async (req, res) => {
+  try {
+    console.log("===== FORGOT PASSWORD START =====");
+
+    const { email } = req.body;
+    console.log("Searching user:", email);
+
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      console.log("User not found");
+      return res.status(403).json({ message: "User not found" });
+    }
+
+    console.log("User found:", user.email);
+
+    // Generate token
+    const token = crypto.randomBytes(32).toString("hex");
+    user.resetToken = token;
+    user.resetTokenExpiry = Date.now() + 3600000; // 1 hour
+    await user.save();
+
+    console.log("Token saved:", token);
+
     const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
-    console.log("resetLink",resetLink);
+    console.log("Reset Link:", resetLink);
 
+    // Configure Brevo
+    const defaultClient = SibApiV3Sdk.ApiClient.instance;
+    const apiKey = defaultClient.authentications['api-key'];
+    apiKey.apiKey = process.env.BREVO_API_KEY;
 
-    const trans = await transporter.sendMail({
-      from: process.env.EMAIL, 
-      to: user.email,
+    const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
+
+    const sendSmtpEmail = {
+      sender: {
+        name: "Kirisha App",
+        email: "projecttt1114@gmail.com", // must be verified in Brevo
+      },
+      to: [
+        {
+          email: user.email,
+        },
+      ],
       subject: "Password Reset",
-      html: `<h3>Click below to reset password</h3>
-             <a href="${resetLink}">${resetLink}</a>`,
-    });
-    console.log("trans",trans);
-    
+      htmlContent: `
+        <h3>Click below to reset password</h3>
+        <a href="${resetLink}">${resetLink}</a>
+      `,
+    };
+
+    console.log("Sending email via Brevo...");
+
+    const data = await apiInstance.sendTransacEmail(sendSmtpEmail);
+
+    console.log("Email sent successfully:", data);
+
+    console.log("===== FORGOT PASSWORD END =====");
+
     res.json({ message: "Reset link sent to email" });
 
   } catch (error) {
-    console.error("Forgot Password Error:", error);
+    console.error("===== FORGOT PASSWORD ERROR =====");
+    console.error(error.response?.body || error.message);
     res.status(500).json({ message: "Failed to send reset instructions" });
   }
 };
